@@ -1,0 +1,272 @@
+---
+title: "Data Programming with R - Final Project"
+author: "Douglas Zickuhr"
+date: "19/12/2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+## Final Project
+
+The course project is instead has three parts: Analysis, R Package and Functions/Programming
+
+### Analysis
+
+This task involves finds a dataset of interest to you, that contains a mix of categorical (factors) and numerical variables. As a guideline, the dataset would typically have a minimum of two categorical variables and three numerical variables; these minima are guidelines and not hard thresholds.
+The task is to use the methods covered in this course to complete an analysis and write a report using R markdown on the data. The analysis of the data should involve the use of graphical summaries, tables and numerical summaries of the data.
+This part of the project will be assessed in terms of:
+
+* Using the functionality and settings of the appropriate functions in R.
+* Clearly annotating the code in the Rmarkdown file.
+* Producing a clear results for the data.
+* Summarizing the conclusions from the analysis appropriately.
+
+
+```{r Loading Libraries, warning=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+
+# Loading dataset
+data("diamonds")
+```
+
+For that analysis I will be using the dataset `diamonds`, which is included as a sample dataset in R. This dataset has `r nrow(diamonds)` rows and `r ncol(diamonds)` columns.
+
+Let's have a first look at the dataset so we can get a glimpse of it. There is indeed a function called `glimpse` from `dplyr` package which shows the columns and its types plus a sample of the data.
+
+```{r glimpse on diamonds}
+glimpse(diamonds)
+```
+
+One of the advantages of embedded datasets of R is that we can use the function `help` so we can have some more information about each of the columns.
+
+```{r help diamonds}
+help(diamonds)
+```
+
+
+**Prices of over 50,000 round cut diamonds**
+
+Description
+
+A dataset containing the prices and other attributes of almost 54,000 diamonds. The variables are as follows:
+
+**carat** Weight of the diamond (0.2–5.01)
+
+**cut** Quality of the cut (Fair, Good, Very Good, Premium, Ideal)
+
+**color** Diamond colour, from D (best) to J (worst)
+
+**clarity** Measurement of how clear the diamond is (I1 (worst), SI2, SI1, VS2, VS1, VVS2, VVS1, IF (best))
+
+**depth** Total depth percentage = `z / mean(x, y) = 2 * z / (x + y) (43–79)`
+
+**table** Width of top of diamond relative to widest point (43–95)
+
+**price** Price in US dollars (\$326–\$18,823)
+
+**x** Length in mm (0–10.74)
+
+**y** Width in mm (0–58.9)
+
+**z** Depth in mm (0–31.8)
+
+Not that we have a good understanding of the shape of the data, we can start having a look at the actual analysis.
+
+\newpage
+
+Firstly, let's analyse the distribution of the data. 
+
+```{r Price Histogram, message=FALSE}
+ggplot(diamonds) + 
+  geom_histogram(aes(price)) + 
+  labs(title = "Distribution of Price",
+       y = NULL,
+       x = "Price") + 
+  scale_x_continuous(labels = scales::dollar_format())
+
+```
+
+What the data says is that we have a high density of lower priced diamonds. We can add another layer of information, by adding the columns `cut` to define the colour of the bars.
+
+```{r Histogram of Price by Cut}
+ggplot(diamonds) + 
+  geom_histogram(aes(price, fill=cut)) + 
+  labs(title = "Distribution of Price by Cut",
+       y = NULL,
+       x = "Price",
+       fill = "Cut") + 
+  scale_x_continuous(labels = scales::dollar_format())
+```
+
+
+In the end the distribution of the cut is also fair accross the price range of the diamonds. Let's add another variable to our plot by creating a scatter-plot comparing `price` and `carat`, which is the weight of the diamond.
+
+```{r Scatterplot price and carat}
+ggplot(diamonds) + 
+  geom_point(aes(price, carat, colour=cut)) + 
+  labs(title = "Distribution of Price and Weight by Cut",
+       y = "Weight",
+       x = "Price",
+       colour = "Cut") + 
+  scale_x_continuous(labels = scales::dollar_format())
+
+```
+
+Clearly, we can extract some info from the previous visualisation or at least to say we can raise some hypothesis.
+
+* Heavier diamonds are more expesive
+* Lighter diamonds have better cut (Ideal is the best type of cut)
+* Weights tend to be rounded to values like 1, 2 and 3.
+* Better cut means higher price
+
+
+\newpage
+
+We can generate some summaries of the data now. One other interesting function from `dplyr` package is the function `summarise_if`, the idea is that after we group the data by a given column, we can execute aggregation functions over several columns given a predicate.
+
+In the following example I will group the data by columns `cut` and `clarity`. Afterwards I will calculate the mean of every column which the type is numeric.
+
+```{r Diamonds Summary}
+library(kableExtra)
+diamonds %>%
+  group_by(cut) %>%
+  summarise_if(is.numeric, mean) %>%
+  select(cut, carat, depth, table, price) %>%
+  mutate(mean_price_by_carat = price/carat) %>%
+  kbl(booktabs = T, 
+      label = "Mean values by Diamond Cut",
+      col.names = c("Cut", "Weight", "Depth", "Table", "Price", "Avg. Price by Carat"))
+```
+
+
+```{r}
+diamonds %>%
+  group_by(clarity) %>%
+  summarise_if(is.numeric, mean) %>%
+  select(clarity, carat, depth, table, price) %>%
+  mutate(mean_price_by_carat = price/carat) %>%
+  kbl(booktabs = T, 
+      label = "Mean values by Diamond Cut",
+      col.names = c("Clarity", "Weight", "Depth", "Table", "Price", "Avg. Price by Clarity"))
+```
+
+\newpage
+
+Let's try to plot data now based on `clarity` and `cut`. The function `facet_wrap` from `ggplot` makes possible to create dynamic grid of plots based on variables from the dataset, like the following example where we create one small plot for each type of cut.
+The comparison is still possible because the scales are kept the same.
+
+
+```{r Facet Plot of Price by Cut and Clarity}
+ggplot(diamonds) + 
+  geom_point(aes(price, carat, colour=clarity)) + 
+  labs(title = "Distribution of Price and Weight by Cut and Clarity",
+       y = "Weight",
+       x = "Price",
+       colour = "Clarity") + 
+  scale_x_continuous(labels = scales::dollar_format()) + 
+  facet_wrap(~cut)
+```
+
+The column `clarity` also seems to be a key to determine the price of the the diamond, the distribution seems even more clear than the colour itself.
+
+Next, let's try to fit a smooth line to compare prices and weigth by different Cut levels, so we can analyse how much the weight impact 
+
+```{r Price by Weight and Smooth by Cut}
+ggplot(diamonds) + 
+  geom_point(aes(price, carat), alpha=0.3) + 
+  geom_smooth(aes(price, carat, group = cut, colour=cut))  + 
+  labs(title = "Diamond's Prices by Weight",
+       subtitle = "Smooth line of prices by Cut",
+       y = "Weight",
+       x = "Price",
+       colour = "Cut") + 
+  scale_x_continuous(labels = scales::dollar_format())
+```
+
+```{r Price by Weight and Smooth by Clarity}
+ggplot(diamonds) + 
+  geom_point(aes(price, carat), alpha=0.3) + 
+  geom_smooth(aes(price, carat, group = clarity, colour=clarity)) + 
+  labs(title = "Diamond's Prices by Weight",
+       subtitle = "Smooth line of prices by Clarity",
+       y = "Weight",
+       x = "Price",
+       colour = "Clarity") + 
+  scale_x_continuous(labels = scales::dollar_format())
+```
+
+
+Wrapping up the analysis, we can affirm that based on the visualisation we created that:
+
+1. Better cut and clarity mean higher prices, sometimes even more than the weight.
+2. The diamond clarity seems to be related to weight of the diamond, as per last plot we can see that havier diamond tend to have worse colours. PS: IF is the best colour and I1 is the worst.
+3. Prices are related to weight but the cut, colour and clarity employ a key on the final price.
+
+
+### R Package
+
+This task involves finding an existing R package, that we didn’t use extensively in the course, and write a report demonstrating its use using R markdown.
+The report should demonstrate some of the key functionality of the package, but doesn’t need to demonstrate all of the functions (only the main ones).
+Some examples of demonstrations of this type include:
+mclust: https://www.datanovia.com/en/lessons/model-based-clustering-essentials/ survival: https://www.r-bloggers.com/2018/03/steps-to-perform-survival-analysis-in-r/ This part of the project will be assessed in terms of:
+
+* Clearly summarising the purpose of the package.
+* Clearly demonstrating the functionality of some of the main functions in the package on
+appropriate data.
+* Clearly showing the code and output for the demonstration examples.
+
+The package I will be demonstrating here is a package called `arsenal`. According to the documentation, this package is An Arsenal of 'R' functions for large-scale statistical summaries, which are streamlined to work within the latest reporting tools in 'R' and 'RStudio' and which use formulas and versatile summary statistics for summary tables and models.
+
+```{r Loading Arsenal}
+## Loading the package
+library(arsenal)
+```
+
+This package has many functions available that are somehow re-implementation of `SAS` procedures. This is a big win if you one is trying to migrate from `SAS` platform to `R` for example.
+
+Let's check one of those functions, called `comparedf`. The idea is to simulate what the `PROC COMPARE` function does in `SAS`.
+
+For such, let's create two sample dataframes based on the `mpg` dataset. One will contain the whole dataset, while the second will have just a sample (90%) of the given data.
+
+I will also remove two columns from the original dataset.
+```{r Sample dataframes}
+data("mpg")
+
+# Subsetting 30% of the original data
+df1 <- mpg %>% 
+  mutate(cty = if_else(year%%2==0, as.numeric(cty), cty*1.5))
+
+# Setting seed so we always have the same sample
+set.seed(30)
+# Subsetting 10% of the original data
+df2 <- mpg %>% sample_frac(.9) %>% 
+  select(-class)
+```
+
+
+Next, we can run the `comparedf` function.
+
+```{r Running comparison}
+comparison_result <- comparedf(df1, df2)
+comparison_result
+```
+
+The object that is returned is an object of type `comparedf`. We can also check some of the summary results. For example:
+
+* The function call
+* Shared: Number of shared variables within compared datasets
+* Not shared: Number of not-shared variables within datasets
+
+```{r}
+comparison_result$vars.summary
+```
+
+
